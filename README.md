@@ -66,4 +66,10 @@ sensor-network/
 
 ## DoS Attack ##
 
-The script *DoS.py* inside the ubuntu machine performs a DoS attacks (slowloris) on the sensor server.
+The script *DoS.py* inside the ubuntu machine performs a DoS attacks (slowloris) on the sensor server. The script opens a total of 50 requests, being the maximum 30 (20 in the foreground, 10 in the background). During the attack, the server will start returning the Error Code 503 (Service Unavailable).
+
+After that, the panel stops receiving data from the sensor with the Error Code **CONNECTION ERROR**.
+
+```
+python3 /DoS.py
+```
