@@ -1,0 +1,70 @@
+services:
+
+  # ── SENSOR (172.20.0.20) ──────────────────────────────────────────────────
+  # FastAPI backend — simulates temperature, humidity and gas readings.
+  # Only reachable on port 8000 within the Docker network.
+  # Not exposed to the host by default (remove the ports block if not needed).
+  sensor:
+    build:
+      context: ./sensor
+      dockerfile: Dockerfile
+    container_name: sensor
+    hostname: sensor
+    networks:
+      sensor-net:
+        ipv4_address: 172.20.0.20
+    ports:
+      - "8000:8000"          # optional: expose to host for direct curl testing
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  # ── CONTROL PANEL (172.20.0.10) ───────────────────────────────────────────
+  # nginx serves index.html and reverse-proxies /sensor → sensor:8000.
+  # Open http://localhost in your browser after `docker compose up`.
+  control-panel:
+    build:
+      context: ./control-panel
+      dockerfile: Dockerfile
+    container_name: control-panel
+    hostname: control-panel
+    networks:
+      sensor-net:
+        ipv4_address: 172.20.0.10
+    ports:
+      - "80:80"              # dashboard accessible at http://localhost
+    depends_on:
+      sensor:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── UBUNTU NODE (172.20.0.30) ─────────────────────────────────────────────
+  # Plain Ubuntu — sits on the network for exploration / testing.
+  # Exec into it with: docker exec -it ubuntu-node bash
+  # Try: ping sensor | ping control-panel | curl http://172.20.0.20:8000/sensor
+  ubuntu-node:
+    build:
+      context: ./ubuntu-node
+      dockerfile: Dockerfile
+    container_name: ubuntu-node
+    hostname: ubuntu-node
+    networks:
+      sensor-net:
+        ipv4_address: 172.20.0.30
+    restart: unless-stopped
+
+
+# ── NETWORK ────────────────────────────────────────────────────────────────
+networks:
+  sensor-net:
+    name: sensor-net
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
+          gateway: 172.20.0.1

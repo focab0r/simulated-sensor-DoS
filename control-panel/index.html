@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CONTROL PANEL · SIM-01</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;600;800&display=swap" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0b0d0f;
+      --surface:  #111417;
+      --border:   #1e2328;
+      --dim:      #2a2f36;
+      --muted:    #4a5260;
+      --text:     #c8d0dc;
+      --bright:   #e8ecf2;
+      --accent:   #00e5c0;
+      --warn:     #f5a623;
+      --danger:   #ff3e5a;
+      --temp:     #ff6b35;
+      --hum:      #4fc3f7;
+      --gas:      #b39ddb;
+      --mono:     'Share Tech Mono', monospace;
+      --sans:     'Barlow Condensed', sans-serif;
+    }
+
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--sans); letter-spacing: .02em; }
+
+    body::before {
+      content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 999;
+      background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,.12) 3px, rgba(0,0,0,.12) 4px);
+    }
+
+    .shell { min-height: 100vh; display: grid; grid-template-rows: auto 1fr auto; max-width: 960px; margin: 0 auto; padding: 0 24px; }
+
+    header {
+      padding: 28px 0 20px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: flex-end; justify-content: space-between; gap: 16px;
+    }
+    .logo-block h1 { font-size: clamp(28px,5vw,48px); font-weight: 800; line-height: 1; color: var(--bright); text-transform: uppercase; letter-spacing: .1em; }
+    .logo-block p  { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 4px; letter-spacing: .15em; }
+
+    .header-right { text-align: right; }
+    #status-badge {
+      display: inline-block; font-family: var(--mono); font-size: 11px; letter-spacing: .15em;
+      padding: 4px 12px; border-radius: 2px; border: 1px solid currentColor; transition: color .3s, border-color .3s;
+    }
+    #status-badge.NOMINAL  { color: var(--accent); }
+    #status-badge.ELEVATED { color: var(--warn); }
+    #status-badge.WARNING  { color: var(--danger); animation: blink 1s step-start infinite; }
+    #status-badge.ERROR    { color: var(--danger); animation: blink .5s step-start infinite; }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    #clock { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+    /* Network info bar */
+    .net-bar {
+      margin-top: 12px; padding: 8px 14px;
+      background: var(--surface); border: 1px solid var(--border);
+      display: flex; gap: 24px; flex-wrap: wrap;
+      font-family: var(--mono); font-size: 11px; color: var(--muted);
+    }
+    .net-bar span { color: var(--text); }
+    .net-bar .label { color: var(--muted); margin-right: 6px; }
+
+    main { padding: 32px 0; display: flex; flex-direction: column; gap: 24px; }
+
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-top: 3px solid var(--dim);
+      padding: 24px 20px 20px; position: relative; overflow: hidden; transition: border-top-color .4s;
+    }
+    .card::after {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(ellipse at 50% 0%, var(--accent-card, transparent) 0%, transparent 70%);
+      opacity: .07; pointer-events: none;
+    }
+    .card[data-sensor="temperature"] { --accent-card: var(--temp); border-top-color: var(--temp); }
+    .card[data-sensor="humidity"]    { --accent-card: var(--hum);  border-top-color: var(--hum); }
+    .card[data-sensor="gas"]         { --accent-card: var(--gas);  border-top-color: var(--gas); }
+
+    .card-label { font-size: 11px; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+    .card-label .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: pulse 2s ease-in-out infinite; }
+    .card[data-sensor="temperature"] .card-label { color: var(--temp); }
+    .card[data-sensor="humidity"]    .card-label { color: var(--hum); }
+    .card[data-sensor="gas"]         .card-label { color: var(--gas); }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.7)} }
+
+    .card-value { margin-top: 12px; font-family: var(--mono); font-size: clamp(36px,6vw,52px); color: var(--bright); line-height: 1; transition: color .3s; }
+    .card-unit  { font-size: 14px; color: var(--muted); margin-left: 4px; font-family: var(--sans); }
+
+    .bar-track { margin-top: 16px; height: 3px; background: var(--dim); border-radius: 2px; overflow: hidden; }
+    .bar-fill  { height: 100%; border-radius: 2px; transition: width .6s cubic-bezier(.4,0,.2,1); background: currentColor; }
+    .card[data-sensor="temperature"] .bar-fill { color: var(--temp); }
+    .card[data-sensor="humidity"]    .bar-fill { color: var(--hum); }
+    .card[data-sensor="gas"]         .bar-fill { color: var(--gas); }
+    .card-range { display: flex; justify-content: space-between; margin-top: 4px; font-family: var(--mono); font-size: 10px; color: var(--muted); }
+
+    .chart-panel { background: var(--surface); border: 1px solid var(--border); padding: 20px; }
+    .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .chart-title  { font-size: 11px; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); }
+    .chart-legend { display: flex; gap: 16px; }
+    .legend-item  { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; display: flex; align-items: center; gap: 6px; }
+    .legend-swatch{ width: 20px; height: 2px; border-radius: 1px; }
+    canvas#chart  { width: 100% !important; height: 160px !important; display: block; }
+
+    .log-panel  { background: var(--surface); border: 1px solid var(--border); padding: 16px 20px; }
+    .log-title  { font-size: 11px; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+    #log-list   { list-style: none; font-family: var(--mono); font-size: 11px; line-height: 1.7; max-height: 110px; overflow-y: auto; }
+    #log-list li        { color: var(--muted); }
+    #log-list li span.ts  { color: var(--dim); margin-right: 8px; }
+    #log-list li span.val { color: var(--text); }
+    #log-list li.warn   span.val { color: var(--warn); }
+    #log-list li.danger span.val { color: var(--danger); }
+
+    footer {
+      padding: 16px 0; border-top: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+      font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: .1em;
+    }
+    #poll-indicator { display: flex; align-items: center; gap: 8px; }
+    #poll-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); opacity: 0; transition: opacity .1s; }
+    #poll-dot.flash { opacity: 1; }
+
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--dim); }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <header>
+    <div class="logo-block">
+      <h1>Control Panel</h1>
+      <p>NODE: CONTROL-PANEL · 172.20.0.10 · POLLING SENSOR @ 172.20.0.20</p>
+    </div>
+    <div class="header-right">
+      <div id="status-badge" class="NOMINAL">● NOMINAL</div>
+      <div id="clock">--:--:--</div>
+    </div>
+  </header>
+
+  <!-- Network topology bar -->
+  <div class="net-bar">
+    <div><span class="label">NETWORK</span><span>sensor-net · 172.20.0.0/24</span></div>
+    <div><span class="label">THIS NODE</span><span>control-panel · 172.20.0.10</span></div>
+    <div><span class="label">SENSOR</span><span id="sensor-addr">172.20.0.20:8000</span></div>
+    <div><span class="label">UBUNTU</span><span>172.20.0.30</span></div>
+  </div>
+
+  <main>
+    <div class="cards">
+      <div class="card" data-sensor="temperature">
+        <div class="card-label"><span class="dot"></span>Temperature</div>
+        <div class="card-value" id="val-temperature">--<span class="card-unit">°C</span></div>
+        <div class="bar-track"><div class="bar-fill" id="bar-temperature" style="width:0%"></div></div>
+        <div class="card-range"><span>0 °C</span><span>80 °C</span></div>
+      </div>
+      <div class="card" data-sensor="humidity">
+        <div class="card-label"><span class="dot"></span>Humidity</div>
+        <div class="card-value" id="val-humidity">--<span class="card-unit">%</span></div>
+        <div class="bar-track"><div class="bar-fill" id="bar-humidity" style="width:0%"></div></div>
+        <div class="card-range"><span>0 %</span><span>100 %</span></div>
+      </div>
+      <div class="card" data-sensor="gas">
+        <div class="card-label"><span class="dot"></span>Gas / CO₂</div>
+        <div class="card-value" id="val-gas">--<span class="card-unit">ppm</span></div>
+        <div class="bar-track"><div class="bar-fill" id="bar-gas" style="width:0%"></div></div>
+        <div class="card-range"><span>300 ppm</span><span>5000 ppm</span></div>
+      </div>
+    </div>
+
+    <div class="chart-panel">
+      <div class="chart-header">
+        <span class="chart-title">History · Last 40 samples</span>
+        <div class="chart-legend">
+          <div class="legend-item"><div class="legend-swatch" style="background:var(--temp)"></div>TEMP</div>
+          <div class="legend-item"><div class="legend-swatch" style="background:var(--hum)"></div>HUM</div>
+          <div class="legend-item"><div class="legend-swatch" style="background:var(--gas)"></div>GAS/10</div>
+        </div>
+      </div>
+      <canvas id="chart"></canvas>
+    </div>
+
+    <div class="log-panel">
+      <div class="log-title">Event Log</div>
+      <ul id="log-list"></ul>
+    </div>
+  </main>
+
+  <footer>
+    <span>POLL INTERVAL · 2 s · GET /sensor</span>
+    <div id="poll-indicator">
+      <div id="poll-dot"></div>
+      <span id="poll-count">0 SAMPLES</span>
+    </div>
+  </footer>
+
+</div>
+<script>
+  // SENSOR_URL is injected by the entrypoint script into window.SENSOR_URL
+  // Falls back to the fixed Docker IP so it also works without the env var
+  const API_URL     = (window.SENSOR_URL || 'http://172.20.0.20:8000') + '/sensor';
+  const POLL_MS     = 2000;
+  const MAX_HISTORY = 40;
+
+  document.getElementById('sensor-addr').textContent =
+    (window.SENSOR_URL || 'http://172.20.0.20:8000').replace('http://','') + '/sensor';
+
+  const history = { temp: [], hum: [], gas: [] };
+  let sampleCount = 0;
+
+  const $ = id => document.getElementById(id);
+  const valTemp   = $('val-temperature');
+  const valHum    = $('val-humidity');
+  const valGas    = $('val-gas');
+  const barTemp   = $('bar-temperature');
+  const barHum    = $('bar-humidity');
+  const barGas    = $('bar-gas');
+  const badge     = $('status-badge');
+  const logList   = $('log-list');
+  const pollDot   = $('poll-dot');
+  const pollCount = $('poll-count');
+  const clockEl   = $('clock');
+
+  setInterval(() => { clockEl.textContent = new Date().toLocaleTimeString('en-GB'); }, 1000);
+
+  const canvas = $('chart');
+  const ctx    = canvas.getContext('2d');
+  function resizeCanvas() { canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight; }
+  window.addEventListener('resize', () => { resizeCanvas(); drawChart(); });
+  resizeCanvas();
+
+  function drawChart() {
+    const W = canvas.width, H = canvas.height;
+    ctx.clearRect(0, 0, W, H);
+    const n = history.temp.length;
+    if (n < 2) return;
+    ctx.strokeStyle = '#1e2328'; ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const y = Math.round(H * i / 4) + .5;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+    const cs = getComputedStyle(document.documentElement);
+    const step = W / (MAX_HISTORY - 1);   // fixed pixel gap between samples
+    // data[0] is the oldest sample, always at x=0.
+    // Each new sample advances one step to the right.
+    function series(data, color, minV, maxV) {
+      if (data.length < 2) return;
+      ctx.strokeStyle = color; ctx.lineWidth = 1.5;
+      ctx.shadowColor = color; ctx.shadowBlur = 4;
+      ctx.beginPath();
+      data.forEach((v, i) => {
+        const x = i * step;
+        const y = H - ((v - minV) / (maxV - minV)) * H;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      });
+      ctx.stroke(); ctx.shadowBlur = 0;
+    }
+    series(history.temp,                 cs.getPropertyValue('--temp').trim(), 0,   80);
+    series(history.hum,                  cs.getPropertyValue('--hum').trim(),  0,   100);
+    series(history.gas.map(v => v / 10), cs.getPropertyValue('--gas').trim(),  30,  500);
+  }
+
+  function addLog(data) {
+    const ts  = new Date().toLocaleTimeString('en-GB');
+    const cls = data.status === 'WARNING' ? 'danger' : data.status === 'ELEVATED' ? 'warn' : '';
+    const li  = document.createElement('li');
+    li.className = cls;
+    li.innerHTML = `<span class="ts">${ts}</span><span class="val">` +
+      `T:${data.temperature.value.toFixed(1)}°C  ` +
+      `H:${data.humidity.value.toFixed(1)}%  ` +
+      `G:${data.gas.value.toFixed(0)}ppm  [${data.status}]</span>`;
+    logList.prepend(li);
+    while (logList.children.length > 20) logList.removeChild(logList.lastChild);
+  }
+
+  async function poll() {
+    try {
+      const res  = await fetch(API_URL);
+      if (!res.ok) throw new Error(res.statusText);
+      const data = await res.json();
+
+      valTemp.innerHTML = `${data.temperature.value.toFixed(1)}<span class="card-unit">°C</span>`;
+      valHum.innerHTML  = `${data.humidity.value.toFixed(1)}<span class="card-unit">%</span>`;
+      valGas.innerHTML  = `${data.gas.value.toFixed(0)}<span class="card-unit">ppm</span>`;
+
+      barTemp.style.width = `${(data.temperature.value / 80) * 100}%`;
+      barHum.style.width  = `${data.humidity.value}%`;
+      barGas.style.width  = `${((data.gas.value - 300) / 4700) * 100}%`;
+
+      badge.textContent = `● ${data.status}`;
+      badge.className   = data.status;
+
+      history.temp.push(data.temperature.value);
+      history.hum.push(data.humidity.value);
+      history.gas.push(data.gas.value);
+      if (history.temp.length > MAX_HISTORY) { history.temp.shift(); history.hum.shift(); history.gas.shift(); }
+
+      drawChart();
+      addLog(data);
+      sampleCount++;
+      pollCount.textContent = `${sampleCount} SAMPLES`;
+      pollDot.classList.add('flash');
+      setTimeout(() => pollDot.classList.remove('flash'), 150);
+
+    } catch (err) {
+      badge.textContent = '● CONNECTION ERROR';
+      badge.className   = 'ERROR';
+      const li = document.createElement('li');
+      li.className = 'danger';
+      li.innerHTML = `<span class="ts">${new Date().toLocaleTimeString('en-GB')}</span>` +
+        `<span class="val">FETCH ERROR: ${err.message}</span>`;
+      logList.prepend(li);
+    }
+  }
+
+  poll();
+  setInterval(poll, POLL_MS);
+</script>
+</body>
+</html>
